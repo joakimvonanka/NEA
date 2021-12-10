@@ -11,11 +11,8 @@ from multiprocessing import Pool
 import time
 start_time = time.time()
 
-
-# TODO: add additional supported video formats
 supported_video_ext = ('.avi', '.mp4')
 
-# TODO: add additional supported extracted frame formats
 supported_frame_ext = ('.jpg', '.png')
 
 
@@ -30,7 +27,6 @@ class FrameExtractor:
             sampling (int)    : sampling rate -- extract one frame every given number of seconds.
                                 Default=-1 for extracting all available frames
         """
-        # Check if given video file exists -- abort otherwise
         if osp.exists(video_file):
             self.video_file = video_file
         else:
@@ -38,39 +34,31 @@ class FrameExtractor:
 
         self.sampling = sampling
 
-        # Create output directory for storing extracted frames
         self.output_dir = output_dir
         if not osp.exists(self.output_dir):
             os.makedirs(self.output_dir)
 
-        # Get extracted frame file format
         self.frame_ext = frame_ext
         if frame_ext not in supported_frame_ext:
             raise ValueError("Not supported frame file format: {}".format(frame_ext))
         else:
             self.frame_ext = frame_ext
 
-        # Capture given video stream
         self.video = cv2.VideoCapture(self.video_file)
 
-        # Get video fps
         self.video_fps = self.video.get(cv2.CAP_PROP_FPS)
 
-        # Get video length in frames
         self.video_length = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
         if self.sampling != -1:
             self.video_length = self.video_length // self.sampling
 
     def extract(self):
-        # Get first frame
         success, frame = self.video.read()
         frame_cnt = 0
         while success:
-            # Write current frame
             curr_frame_filename = osp.join(self.output_dir, "{:08d}{}".format(frame_cnt, self.frame_ext))
             cv2.imwrite(curr_frame_filename, frame)
 
-            # Get next frame
             success, frame = self.video.read()
 
             if self.sampling != -1:
@@ -88,11 +76,9 @@ def extract_video_frames(v_file):
 
     if os.stat(osp.join(args_.dir, v_file[0])).st_size > 0:
         if not osp.isdir(osp.join(args_.output_root, v_file[1])):
-            # Set up video extractor for given video file
             extractor = FrameExtractor(video_file=osp.join(args_.dir, v_file[0]),
                                        output_dir=osp.join(args_.output_root, v_file[1]),
                                        sampling=args_.sampling)
-            # Extract frames
             extractor.extract()
     else:
         os.remove(osp.join(args_.dir, v_file[0]))
@@ -106,7 +92,6 @@ def check_sampling_param(s):
 
 
 def main():
-    # Set up a parser for command line arguments
     parser = argparse.ArgumentParser("Extract frames from videos")
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--video', type=str, help='set video filename')
@@ -117,22 +102,15 @@ def main():
     parser.add_argument('--workers', type=int, default=None, help="Set number of multiprocessing workers")
     args = parser.parse_args()
 
-    # Extract frames from a (single) given video file
     if args.video:
-        # Setup video extractor for given video file
         video_basename = osp.basename(args.video).split('.')[0]
-        # Check video file extension
         video_ext = osp.splitext(args.video)[-1]
         if video_ext not in supported_video_ext:
             raise ValueError("Not supported video file format: {}".format(video_ext))
-        # Set extracted frames output directory
         output_dir = osp.join(args.output_root, '{}_frames'.format(video_basename))
-        # Set up video extractor for given video file
         extractor = FrameExtractor(video_file=args.video, output_dir=output_dir, sampling=args.sampling)
-        # Extract frames
         extractor.extract()
 
-    # Extract frames from all video files found under the given directory (including all sub-directories)
     if args.dir:
         print("#. Extract frames from videos under dir : {}".format(args.dir))
         print("#. Store extracted frames under         : {}".format(args.output_root))
@@ -142,7 +120,6 @@ def main():
             print("#. Extract one frame every {} seconds.".format(args.sampling))
         print("#. Scan for video files...")
 
-        # Scan given dir for video files
         video_list = []
         for r, d, f in walk(args.dir):
             for file in f:
@@ -152,7 +129,6 @@ def main():
                     video_list.append([osp.join(osp.relpath(r, args.dir), file),
                                        osp.join(osp.relpath(r, args.dir), "{}_frames".format(file_basename))])
 
-        # Extract frames from found video files
         global args_
         args_ = args
         with Pool(processes=args.workers) as p:
